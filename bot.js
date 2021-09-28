@@ -1,6 +1,7 @@
 require('dotenv').config()
 
 const {Client} = require('discord.js');
+const { setPriority } = require('os');
 const intents = ['GUILDS', 'GUILD_MESSAGES', 'DIRECT_MESSAGES', 'GUILD_BANS', 'GUILD_EMOJIS_AND_STICKERS', 'GUILD_INTEGRATIONS', 'GUILD_WEBHOOKS', 'GUILD_INVITES', 'GUILD_VOICE_STATES', 'GUILD_MESSAGE_REACTIONS', 'GUILD_MESSAGE_TYPING', 'DIRECT_MESSAGE_REACTIONS', 'DIRECT_MESSAGE_TYPING', 'GUILD_PRESENCES', 'GUILD_MEMBERS'];
 const path = require('path')
 const { Sequelize, DataTypes, Op } = require('sequelize')
@@ -141,7 +142,6 @@ const createTimeout = async (discordId, channel) => {
   timeoutIds.set(discordId, timeoutId)
 }
 
-console.log(process.env.TOKEN)
 client.login(process.env.TOKEN)
 
 client.once('ready', () => {
@@ -215,7 +215,29 @@ client.on('messageCreate', async message => {
     console.log(`[RESET] Data has been reset for guild ${guild.name}`)
 
     await message.reply(`Data has been reset for ${guild.members.cache.size} homos`)
-  }
+  } else if (content === '%list') {
+    const guild = message.guild
+    let response = "Current hours spent this week:\n"
 
-  console.log(content)
+    console.table(guild.members.cache)
+
+    console.log(typeof guild.members.cache)
+
+    const map = message.guild.members.cache.keys()
+    let iter = map.next()
+    
+    while (!iter.done) {
+      console.log(iter.value)
+
+      const homo = await findHomo(iter.value)
+      const user = await client.users.fetch(iter.value).catch(console.error)
+
+      const time = (homo.time / 3600000).toPrecision(2);
+
+      response += `${user.username} has spent ${time} hours in the past week.\n`
+
+      iter = map.next()
+    }
+    await message.reply(response)
+  }
 });
