@@ -226,11 +226,11 @@ client.on('messageCreate', async message => {
 
     for (let id of memberList.keys()) {
       const member = await findMember(id)
-      const time = (member.time / 3600000).toPrecision(2);
+      const time = (member.time / 3600000).toPrecision(1);
 
       const user = memberList.get(id).user.tag
 
-      response += `${user} has spent ${time} hours in the past week.\n`
+      response += `${user}: ${time}h\n`
     }
 
     await message.reply(response)
