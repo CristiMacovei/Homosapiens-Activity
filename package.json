@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "literally counts homos",
   "main": "bot.js",
+  "engines": {
+    "node": "16.x"
+  },
   "scripts": {
     "test": "nodemon bot.js"
   },
