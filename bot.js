@@ -1,6 +1,6 @@
 require('dotenv').config()
 
-const { MessageEmbed, Client, MessageActionRow, MessageButton } = require('discord.js');
+const {Client} = require('discord.js');
 const intents = ['GUILDS', 'GUILD_MESSAGES', 'DIRECT_MESSAGES', 'GUILD_BANS', 'GUILD_EMOJIS_AND_STICKERS', 'GUILD_INTEGRATIONS', 'GUILD_WEBHOOKS', 'GUILD_INVITES', 'GUILD_VOICE_STATES', 'GUILD_MESSAGE_REACTIONS', 'GUILD_MESSAGE_TYPING', 'DIRECT_MESSAGE_REACTIONS', 'DIRECT_MESSAGE_TYPING', 'GUILD_PRESENCES', 'GUILD_MEMBERS'];
 const path = require('path')
 const { Sequelize, DataTypes, Op } = require('sequelize')
@@ -34,7 +34,7 @@ const initDatabase = async () => {
       allowNull: false
     },
     lastEnter: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.BIGINT,
       allowNull: false
     },
     isActive: {
