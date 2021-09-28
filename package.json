@@ -17,6 +17,8 @@
   "dependencies": {
     "discord.js": "^13.1.0",
     "dotenv": "^10.0.0",
+    "luxon": "^2.0.2",
+    "pastebin-api": "^2.3.6",
     "pg": "^8.7.1",
     "sequelize": "^6.6.5",
     "sqlite3": "^5.0.2"

@@ -3,6 +3,8 @@ require('dotenv').config()
 const {Client} = require('discord.js');
 const intents = ['GUILDS', 'GUILD_MESSAGES', 'DIRECT_MESSAGES', 'GUILD_BANS', 'GUILD_EMOJIS_AND_STICKERS', 'GUILD_INTEGRATIONS', 'GUILD_WEBHOOKS', 'GUILD_INVITES', 'GUILD_VOICE_STATES', 'GUILD_MESSAGE_REACTIONS', 'GUILD_MESSAGE_TYPING', 'DIRECT_MESSAGE_REACTIONS', 'DIRECT_MESSAGE_TYPING', 'GUILD_PRESENCES', 'GUILD_MEMBERS'];
 const path = require('path')
+const { PasteClient } = require('pastebin-api')
+const { DateTime, Duration } = require('luxon')
 const { Sequelize, DataTypes, Op } = require('sequelize')
 
 const client = new Client({ intents });
@@ -21,6 +23,7 @@ new Sequelize(process.env.DATABASE_URL, {
     }
   }
 })
+const pastebinClient = new PasteClient(process.env.PASTEBIN_KEY)
 
 const ACTIVE_TIME = 3 * 3600 * 1000 // 3 hours 
 const CONFIRMATION_TIME = 15 * 60 * 1000 // 15 minutes 
@@ -75,9 +78,9 @@ const findMember = async (discordId) => {
 }
 
 const addMember = async (discordId) => {
-  const date = new Date().getTime()
+  const date = DateTime.now().toMillis()
 
-  console.log(`[ENTER]: ${discordId} entered at ${date}`)
+  console.log(`${DateTime.now().toFormat('MMM dd, yyyy hh:mm:ss')} - [ENTER] : ${discordId} entered at ${date}`)
 
   const member = await findMember(discordId)
 
@@ -100,9 +103,7 @@ const addMember = async (discordId) => {
 }
 
 const removeMember = async (discordId) => {
-  const date = new Date().getTime()
-
-  console.log(`[LEAVE]: ${discordId} left at ${date}`)
+  const date = DateTime.now().toMillis()
 
   const member = await findMember(discordId)
 
@@ -113,7 +114,10 @@ const removeMember = async (discordId) => {
     }
   }
 
+  console.log(`${DateTime.now().toFormat('MMM dd, yyyy hh:mm:ss')} - [LEAVE] : ${discordId} left at ${date}`)
+
   const delta = date - member.lastEnter
+  const duration = Duration.fromMillis(delta).shiftTo('hours', 'minutes', 'seconds')
 
   member.isActive = false
   member.time += delta
@@ -122,7 +126,7 @@ const removeMember = async (discordId) => {
 
   return {
     'status': 'success',
-    'message': `Congrats <@!${member.discordId}>, you have worked for another ${Math.floor(delta / 1000)} seconds`
+    'message': `Congrats <@!${member.discordId}>, you have worked for another ${duration.hours} hrs, ${duration.minutes} min & ${duration.seconds} seconds`
   }
 }
 
@@ -146,7 +150,7 @@ client.login(process.env.TOKEN)
 
 client.once('ready', () => {
   initDatabase()
-  .then(() => console.log(`Logged in as ${client.user.tag}`))
+  .then(() => console.log(`${DateTime.now().toFormat('MMM dd, yyyy hh:mm:ss')} - [LOGIN] : Logged in as ${client.user.tag}`))
   .catch(err => console.log(err))
 });
 
@@ -214,25 +218,36 @@ client.on('messageCreate', async message => {
       await member.save()
     }
 
-    console.log(`[RESET] Data has been reset for guild ${message.guild.name}`)
+    console.log(`${DateTime.now().toFormat('MMM dd, yyyy hh:mm:ss')} - [RESET] : Data has been reset for guild ${message.guild.name}`)
 
     await message.reply(`Data has been reset for ${memberList.size} members`)
   } 
   
   else if (content === '%list') {
-    let response = "Current hours spent this week:\n"
+    let response = "Current time spent this week:\n"
 
     const memberList = await message.guild.members.fetch()
 
     for (let id of memberList.keys()) {
+      if (memberList.get(id).user.bot) {
+        continue
+      }
+
       const member = await findMember(id)
-      const time = (member.time / 3600000).toPrecision(1);
+      const time = member.time
+      const duration = Duration.fromMillis(time).shiftTo('hours', 'minutes', 'seconds')
 
       const user = memberList.get(id).user.tag
 
-      response += `${user}: ${time}h\n`
+      response += `${user} has spent ${duration.hours} hrs, ${duration.minutes} min & ${duration.seconds} seconds in the past week\n`
     }
 
-    await message.reply(response)
+    const url = await pastebinClient.createPaste({
+      'code': response,
+      'expireDate': 'N',
+      'name': `list-${DateTime.now().toISODate()}.log`
+    })
+
+    await message.reply(`Here it is: ${url}`)
   }
 });
