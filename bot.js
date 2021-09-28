@@ -46,7 +46,7 @@ const initDatabase = async () => {
       allowNull: false
     }
   }, {
-    tableName: 'homos'
+    tableName: 'homoTable'
   })
 
   await sequelize.models.Homo.sync()
