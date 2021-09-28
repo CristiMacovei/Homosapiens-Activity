@@ -127,3 +127,8 @@ dist
 .webpack/
 
 # End of https://www.toptal.com/developers/gitignore/api/node
+
+# ye somehow this doesn't block sqlite from uploading
+# so here you go
+*.sqlite3
+*.db

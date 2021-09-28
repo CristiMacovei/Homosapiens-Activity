@@ -1,7 +1,6 @@
 require('dotenv').config()
 
 const {Client} = require('discord.js');
-const { setPriority } = require('os');
 const intents = ['GUILDS', 'GUILD_MESSAGES', 'DIRECT_MESSAGES', 'GUILD_BANS', 'GUILD_EMOJIS_AND_STICKERS', 'GUILD_INTEGRATIONS', 'GUILD_WEBHOOKS', 'GUILD_INVITES', 'GUILD_VOICE_STATES', 'GUILD_MESSAGE_REACTIONS', 'GUILD_MESSAGE_TYPING', 'DIRECT_MESSAGE_REACTIONS', 'DIRECT_MESSAGE_TYPING', 'GUILD_PRESENCES', 'GUILD_MEMBERS'];
 const path = require('path')
 const { Sequelize, DataTypes, Op } = require('sequelize')
@@ -10,7 +9,8 @@ const client = new Client({ intents });
 const sequelize = process.env.NODE_ENV === 'dev' ? 
 new Sequelize({
   dialect: 'sqlite',
-  storage: path.join (__dirname, 'homo.sqlite3')
+  storage: path.join (__dirname, 'members.sqlite3'),
+  logging: false
 }) :
 new Sequelize(process.env.DATABASE_URL, {
   dialect: 'postgres',
@@ -29,7 +29,7 @@ const timeoutIds = new Map()
 const confirmationTimeoutIds = new Map()
 
 const initDatabase = async () => {
-  sequelize.define('Homo', {
+  sequelize.define('Member', {
     discordId: {
       type: DataTypes.STRING,
       allowNull: false
@@ -47,16 +47,16 @@ const initDatabase = async () => {
       allowNull: false
     }
   }, {
-    tableName: 'homoTable'
+    tableName: 'members'
   })
 
-  await sequelize.models.Homo.sync()
+  await sequelize.models.Member.sync()
 
   await sequelize.authenticate()
 }  
 
-const createHomo = async (discordId) => {
-  return await sequelize.models.Homo.create({
+const createMember = async (discordId) => {
+  return await sequelize.models.Member.create({
     'discordId': discordId,
     'lastEnter': 0,
     'isActive': false,
@@ -64,65 +64,65 @@ const createHomo = async (discordId) => {
   })
 }
 
-const findHomo = async (discordId) => {
-  const homo =  await sequelize.models.Homo.findOne({
+const findMember = async (discordId) => {
+  const member = await sequelize.models.Member.findOne({
     'where': {
       'discordId': { [Op.eq] : discordId }
     }
   })
 
-  return homo ?? await createHomo(discordId)
+  return member ?? await createMember(discordId)
 }
 
-const addHomo = async (discordId) => {
+const addMember = async (discordId) => {
   const date = new Date().getTime()
 
   console.log(`[ENTER]: ${discordId} entered at ${date}`)
 
-  const homo = await findHomo(discordId)
+  const member = await findMember(discordId)
 
-  if (homo.isActive) {
+  if (member.isActive) {
     return {
       'status': 'error',
       'message': 'You are already active'
     }
   }
 
-  homo.lastEnter = date
-  homo.isActive = true
+  member.lastEnter = date
+  member.isActive = true
 
-  await homo.save()
+  await member.save()
 
   return {
     'status': 'success',
-    'message': `<@!${homo.discordId}> has joined the homo team`
+    'message': `<@!${member.discordId}> has started working`
   }
 }
 
-const removeHomo = async (discordId) => {
+const removeMember = async (discordId) => {
   const date = new Date().getTime()
 
   console.log(`[LEAVE]: ${discordId} left at ${date}`)
 
-  const homo = await findHomo(discordId)
+  const member = await findMember(discordId)
 
-  if (!homo.isActive) {
+  if (!member.isActive) {
     return {
       'status': 'error',
       'message': 'You weren\'t even there'
     }
   }
 
-  const delta = date - homo.lastEnter
+  const delta = date - member.lastEnter
 
-  homo.isActive = false
-  homo.time += delta
+  member.isActive = false
+  member.time += delta
 
-  await homo.save()
+  await member.save()
 
   return {
     'status': 'success',
-    'message': `Congrats <@!${homo.discordId}>, you have worked for another ${Math.floor(delta / 1000)} seconds`
+    'message': `Congrats <@!${member.discordId}>, you have worked for another ${Math.floor(delta / 1000)} seconds`
   }
 }
 
@@ -131,7 +131,7 @@ const createTimeout = async (discordId, channel) => {
     channel.send(`<@!${discordId}> You have been here for ${Math.floor(ACTIVE_TIME / 1000 / 3600)} hours, please confirm that you're still active or your session will be terminated`)
   
     const confirmTimeout = setTimeout(async () => {
-      const response = await removeHomo(discordId)
+      const response = await removeMember(discordId)
 
       channel.send(response.message)
     }, CONFIRMATION_TIME)
@@ -146,7 +146,7 @@ client.login(process.env.TOKEN)
 
 client.once('ready', () => {
   initDatabase()
-  .then(() => console.log(`${client.user.tag} is ready to count homosexuals`))
+  .then(() => console.log(`Logged in as ${client.user.tag}`))
   .catch(err => console.log(err))
 });
 
@@ -154,7 +154,7 @@ client.on('messageCreate', async message => {
   const content = message.content.toLocaleLowerCase();
 
   if (content === '%enter') {
-    const response = await addHomo(message.author.id)
+    const response = await addMember(message.author.id)
 
     await message.reply(response.message)
 
@@ -164,7 +164,7 @@ client.on('messageCreate', async message => {
   }
 
   else if (content === '%leave') {
-    const response = await removeHomo(message.author.id)
+    const response = await removeMember(message.author.id)
 
     await message.reply(response.message)
 
@@ -190,54 +190,49 @@ client.on('messageCreate', async message => {
       timeoutIds.delete(message.author.id)
 
       await createTimeout(message.author.id, message.channel)
+    } else {
+      message.reply('nothing to confirm lmao')
     }
   }
 
   else if (content === '%reset') {
     if (message.author.id !== process.env.OWNER_ID) {
-      await message.reply('Fuck off')
+      await message.reply('Admin only =))))')
 
       return
     }
 
-    const guild = message.guild
+    const memberList = await message.guild.members.fetch()
 
-    guild.members.cache.forEach(async ({id}) => {
-      const homo = await findHomo(id)
+    for (let id of memberList.keys()) {
+      const member = await findMember(id)
 
-      homo.lastEnter = 0
-      homo.isActive = 0
-      homo.time = 0
+      member.lastEnter = 0
+      member.isActive = 0
+      member.time = 0
 
-      await homo.save()
-    })
+      await member.save()
+    }
 
-    console.log(`[RESET] Data has been reset for guild ${guild.name}`)
+    console.log(`[RESET] Data has been reset for guild ${message.guild.name}`)
 
-    await message.reply(`Data has been reset for ${guild.members.cache.size} homos`)
-  } else if (content === '%list') {
-    const guild = message.guild
+    await message.reply(`Data has been reset for ${memberList.size} members`)
+  } 
+  
+  else if (content === '%list') {
     let response = "Current hours spent this week:\n"
 
-    console.table(guild.members.cache)
+    const memberList = await message.guild.members.fetch()
 
-    console.log(typeof guild.members.cache)
+    for (let id of memberList.keys()) {
+      const member = await findMember(id)
+      const time = (member.time / 3600000).toPrecision(2);
 
-    const map = message.guild.members.cache.keys()
-    let iter = map.next()
-    
-    while (!iter.done) {
-      console.log(iter.value)
+      const user = memberList.get(id).user.tag
 
-      const homo = await findHomo(iter.value)
-      const user = await client.users.fetch(iter.value).catch(console.error)
-
-      const time = (homo.time / 3600000).toPrecision(2);
-
-      response += `${user.username} has spent ${time} hours in the past week.\n`
-
-      iter = map.next()
+      response += `${user} has spent ${time} hours in the past week.\n`
     }
+
     await message.reply(response)
   }
 });
