@@ -1,0 +1,20 @@
+{
+  "name": "homo-counter",
+  "version": "1.0.0",
+  "description": "literally counts homos",
+  "main": "bot.js",
+  "scripts": {
+    "test": "nodemon bot.js"
+  },
+  "keywords": [
+    "homo"
+  ],
+  "author": "Cristi Macovei",
+  "license": "ISC",
+  "dependencies": {
+    "discord.js": "^13.1.0",
+    "dotenv": "^10.0.0",
+    "sequelize": "^6.6.5",
+    "sqlite3": "^5.0.2"
+  }
+}
